@@ -1,0 +1,13 @@
+image:
+  repository: confluentinc/cp-zookeeper
+  tag: 3.3.1
+  pullPolicy: IfNotPresent
+nodeSelector: {}
+# Servers configmap is hardcoded to 3 nodes
+replicaCount: 3
+resources:
+  requests:
+    cpu: 500m
+    memory: 2Gi
+storageSize: 10Gi
+zookeeperTick: 2000

@@ -1,0 +1,95 @@
+apiVersion: apps/v1beta2
+kind: StatefulSet
+metadata:
+  labels:
+    app: {{ template "zookeeper.name" . }}
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+  name: {{ template "zookeeper.name" . }}
+  namespace: {{ template "zookeeper.name" . }}-{{ .Values.global.environmentName }}
+spec:
+  podManagementPolicy: Parallel
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ template "zookeeper.name" . }}
+      release: {{ .Release.Name }}
+  serviceName: {{ template "zookeeper.name" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ template "zookeeper.name" . }}
+        release: {{ .Release.Name }}
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - {{ template "zookeeper.name" . }}
+            topologyKey: kubernetes.io/hostname
+      containers:
+      - command:
+        - bash
+        - -c
+        - ZOOKEEPER_SERVER_ID=$((${HOSTNAME##*-}+1)) && /etc/confluent/docker/run
+        env:
+        - name: ZOOKEEPER_TICK_TIME
+          valueFrom:
+            configMapKeyRef:
+              key: tick
+              name: {{ template "zookeeper.name" . }}
+        - name: ZOOKEEPER_SYNC_LIMIT
+          valueFrom:
+            configMapKeyRef:
+              key: tick
+              name: {{ template "zookeeper.name" . }}
+        - name: ZOOKEEPER_SERVERS
+          valueFrom:
+            configMapKeyRef:
+              key: servers
+              name: {{ template "zookeeper.name" . }}
+        - name: ZOOKEEPER_CLIENT_PORT
+          value: "2181"
+        - name: ZOOKEEPER_SERVER_ID
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        name: {{ template "zookeeper.name" . }}
+        ports:
+        - containerPort: 2181
+          name: client
+          protocol: TCP
+        - containerPort: 2888
+          name: server
+          protocol: TCP
+        - containerPort: 3888
+          name: leader-election
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /var/lib/zookeeper
+          name: datadir
+        resources:
+{{ toYaml .Values.resources | indent 10 }}
+    {{- if .Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml .Values.nodeSelector | indent 8 }}
+    {{- end }}
+      terminationGracePeriodSeconds: 30
+  updateStrategy:
+    type: RollingUpdate
+  volumeClaimTemplates:
+  - metadata:
+      name: datadir
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: {{ .Values.storageSize }}

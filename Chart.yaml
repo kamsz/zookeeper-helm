@@ -1,0 +1,4 @@
+apiVersion: v1
+description: A ZooKeeper Helm chart for Kubernetes
+name: zookeeper
+version: 1.0.0
